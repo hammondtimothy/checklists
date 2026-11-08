@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Checklists">
+<meta name="theme-color" content="#6b3fa0">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Checklists</title>
+<style>
+:root{
+  --accent:#6b3fa0; --accent-soft:#efe7f8; --bg:#f2f2f7; --card:#fff; --text:#1c1c1e;
+  --muted:#8e8e93; --line:#e5e5ea; --danger:#d93025; --ok:#2e7d32;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --accent:#b48be6; --accent-soft:#2c2338; --bg:#000; --card:#1c1c1e; --text:#f2f2f7;
+         --muted:#8e8e93; --line:#2c2c2e; --danger:#ff6b5e; --ok:#66bb6a; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;touch-action:manipulation}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,select,textarea{font:inherit;font-size:16px;color:var(--text)}
+#app{padding:calc(env(safe-area-inset-top) + 4px) 10px calc(env(safe-area-inset-bottom) + 24px)}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:8px;min-height:40px;position:sticky;top:0;z-index:5;
+  background:var(--bg);padding:calc(env(safe-area-inset-top)) 2px 4px;margin:calc(-1 * env(safe-area-inset-top)) -2px 0}
+.bar h1{flex:1;font-size:20px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .btn{color:var(--accent);font-weight:600;padding:6px 4px;white-space:nowrap}
+.sync{font-size:11px;color:var(--muted);text-align:right;min-width:14px}
+.sync.err{color:var(--danger)}
+
+/* progress strip */
+.prog{display:flex;align-items:center;gap:8px;margin:2px 2px 8px;font-size:13px;color:var(--muted)}
+.prog .track{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog .fill{height:100%;background:var(--accent);border-radius:3px;transition:width .2s}
+.tools{display:flex;gap:6px;margin:0 0 8px}
+.chip{flex:1;background:var(--card);border-radius:8px;padding:6px 4px;font-size:13px;font-weight:600;
+  color:var(--accent);text-align:center}
+.chip.on{background:var(--accent);color:#fff}
+
+/* home cards */
+.lists{display:flex;flex-direction:column;gap:8px}
+.lcard{background:var(--card);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;text-align:left;width:100%}
+.lcard .nm{font-weight:600;font-size:17px}
+.lcard .sub{font-size:13px;color:var(--muted);margin-top:2px}
+.lcard .go{margin-left:auto;color:var(--muted);font-size:20px}
+.badge{font-size:11px;padding:1px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);margin-left:6px;font-weight:600;vertical-align:2px}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+
+/* categories + rows */
+.cat{background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.cath{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--line)}
+.cath .t{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;flex:1;text-align:left;display:flex;gap:6px;align-items:center}
+.cath .n{font-size:12px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
+.cath .n.done{color:var(--ok)}
+.cath .add{color:var(--accent);font-size:22px;line-height:1;padding:0 4px}
+.chev{display:inline-block;transition:transform .15s;color:var(--muted);font-size:11px}
+.cat.closed .chev{transform:rotate(-90deg)}
+.cat.closed .rows{display:none}
+.cat.closed .cath{border-bottom:0}
+.row{display:flex;align-items:center;gap:10px;width:100%;padding:5px 10px;min-height:32px;text-align:left;
+  border-top:1px solid var(--line);user-select:none;-webkit-user-select:none}
+.rows .row:first-child{border-top:0}
+.box{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--muted);flex:none;display:flex;
+  align-items:center;justify-content:center}
+.row.on .box{background:var(--accent);border-color:var(--accent)}
+.row.on .box::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
+.row .nm{flex:1}
+.row.on .nm{color:var(--muted)}
+.row .def{font-size:10px;color:var(--accent);opacity:.8}
+.row .ed{color:var(--muted);font-size:13px}
+.allpacked{padding:6px 10px;font-size:13px;color:var(--ok)}
+.editbanner{background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:6px 10px;font-size:13px;margin-bottom:8px}
+
+/* sheet */
+#shade{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:20}
+#sheet{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-radius:14px 14px 0 0;z-index:21;
+  max-height:88vh;overflow:auto;padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);display:none}
+#sheet h2{font-size:17px;margin:0 0 10px;text-align:center}
+.fld{margin-bottom:10px}
+.fld label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px 4px;text-transform:uppercase;letter-spacing:.04em}
+.fld input[type=text],.fld input[type=password],.fld select,.fld textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.fld textarea{min-height:90px;resize:vertical}
+.sw{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.sw input{width:22px;height:22px;accent-color:var(--accent)}
+.seg{display:flex;background:var(--card);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;padding:8px;border-radius:8px;font-weight:600}
+.seg button.sel{background:var(--accent);color:#fff}
+.btns{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.b{display:block;width:100%;padding:12px;border-radius:10px;background:var(--card);font-weight:600;color:var(--accent);text-align:center}
+.b.pri{background:var(--accent);color:#fff}
+.b.danger{color:var(--danger)}
+.menu .b{text-align:left}
+.menu .b small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.catrow{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.catrow input{flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+.catrow button{background:var(--card);border-radius:8px;padding:8px 10px;color:var(--accent);font-weight:600}
+.catrow button.x{color:var(--danger)}
+.note{font-size:13px;color:var(--muted);margin:4px 4px 10px;line-height:1.4}
+.code{word-break:break-all;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);padding:10px;border-radius:10px;user-select:all;-webkit-user-select:all}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);
+  background:rgba(40,40,40,.92);color:#fff;padding:8px 14px;border-radius:18px;font-size:14px;z-index:30;
+  opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+.setup{max-width:480px;margin:20px auto}
+.setup h1{text-align:center;margin:10px 0 4px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="shade"></div>
+<div id="sheet"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   Checklists – shared iPhone home-screen checklist app
+   Data lives in ONE JSON file in a private GitHub repo.
+   Each phone holds its own GitHub token (never in this public code).
+   ============================================================ */
+
+const DEFAULTS = { owner:'hammondtimothy', repo:'checklists-data', path:'checklists.json', branch:'main' };
+const OWNER_NAME = 'Tim';          // the person who controls the lists
+const PARTNER_NAME = 'Wendy';      // can tick, untick, add and edit items, and reset
+const POLL_MS = 30000;
+
+/* ---------- starting data: Camping checklist (+ = usually packed / ticked on reset) ---------- */
+const SEED_CAMPING = {
+  'Camping':  '+Sleeping bag|+Pillow|Cool bag/blocks|+Bog roll|+Washing line|+Waste bin|+Toilet fluid/flush|+Folding seats|+Water pipe|BBQ & gas pipe|George Foreman|Awning|Awning inflator|+Awning poles & pegs|+Plates|+Tea cups|+Knives, forks, spoons|+Wine glass|+Soft drink glass|+Pots and pans|+Tongs|+BBQ lighter|Kitchen roll|+Pan scourer|+Tin opener|+Drinks bottle|Travel cup',
+  'Food':     'Worcester sauce|Brown sauce|Chilli sauce|Meat|Baked beans|Buns|Ground coffee|Instant coffee|Sugar|Tea|Milk|Cereal|Beer|Wine|Soft drinks|+Silver foil|Squash|Juice|+Salt, pepper, vinegar|Madras powder|Ginger|Soy sauce|Oil|Pasta|Rice|Water',
+  'Electrics':'Dyson|+AA batteries|+AAA batteries|D batteries|+Charger|Radio|+Headphones|Boom pod|EarPods|+HDMI|iPhone|+Phone stand|+iPhone lead|+Firestick & lead|Power pack|Tablet/laptop & charger|Kindle|+Torch|+Fuses|+Fluorescent light|Razor',
+  'Other':    'Wallet|Washbag|Disabled badge|Sunglasses|E Heritage, NT cards|+Dustpan & brush|Book/magazine|+Playing cards|+Chess set|Bin bag|Rucksack|Travel books|Binoculars|+Hot water bottle|+Pen knife|Football|Bike|Camping club cards|Crick keys',
+  'Dog':      'Dog tins|Dog biscuit|Harness & lead|Drybag|+Drink & food bowls|Dog toys',
+  'Clothes':  "PJ's|Coat|Waterproof trousers|Towel|Swimming trunks|Fleece|Socks/pants|Trousers|Shorts|Shirts|+Flip flops|Wellies/walking boots|+Sun hat|Hat & gloves (winter)",
+  'Abroad':   '+Light bulb set|+Emergency triangle x2|+First aid kit|Passports|Driving licence|Original V5|Certificate of insurance|EHIC cards|CCI card|Hi-vis jackets|Cool box & power supply|Euros|Revolut card'
+};
+function seedData(){
+  const cats = Object.entries(SEED_CAMPING).map(([name, s]) => ({
+    id: uid(), name,
+    items: s.split('|').map(t => { const def = t.startsWith('+'); return { id: uid(), name: def ? t.slice(1) : t, def, on: def }; })
+  }));
+  return { version: 1, lists: [{ id: uid(), name: 'Camping', shared: true, cats }] };
+}
+
+/* ---------- storage ---------- */
+const K = { cfg:'cl_cfg', base:'cl_base', sha:'cl_sha', queue:'cl_queue', ui:'cl_ui', synced:'cl_synced' };
+function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+let cfg    = load(K.cfg, null);              // {token, who, owner, repo, path, branch}
+let base   = load(K.base, null);             // last copy confirmed on GitHub
+let baseSha= load(K.sha, null);
+let queue  = load(K.queue, []);              // changes not yet saved to GitHub
+let ui     = load(K.ui, { hidePacked:false, closed:{} });
+let lastSynced = load(K.synced, null);
+let view   = { screen:'home', list:null, edit:false };
+let syncState = { s:'idle', msg:'' };
+
+const isOwner = () => cfg && cfg.who === OWNER_NAME;
+function uid(){ return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* current view of data = GitHub copy + any changes still waiting to upload */
+function data(){ if(!base) return null; return queue.reduce((d, op) => applyOp(d, op), clone(base)); }
+
+/* ---------- every change is an "op" so changes from both phones merge cleanly ---------- */
+function findList(d, id){ return d.lists.find(l => l.id === id); }
+function findItem(L, id){
+  for(const c of L.cats){ const i = c.items.findIndex(x => x.id === id); if(i >= 0) return { c, i, item: c.items[i] }; }
+  return null;
+}
+function applyOp(d, op){
+  const L = op.l ? findList(d, op.l) : null;
+  if(op.l && !L) return d;
+  switch(op.t){
+    case 'tick':   { const f = findItem(L, op.i); if(f) f.item.on = op.v; break; }
+    case 'add':    { const c = L.cats.find(c => c.id === op.c) || L.cats[0]; if(c && !findItem(L, op.item.id)) c.items.push({ ...op.item }); break; }
+    case 'edit':   { const f = findItem(L, op.i); if(!f) break;
+                     f.item.name = op.name; f.item.def = op.def;
+                     if(op.c && op.c !== f.c.id){ const nc = L.cats.find(c => c.id === op.c); if(nc){ f.c.items.splice(f.i, 1); nc.items.push(f.item); } }
+                     break; }
+    case 'del':    { const f = findItem(L, op.i); if(f) f.c.items.splice(f.i, 1); break; }
+    case 'reset':  L.cats.forEach(c => c.items.forEach(i => i.on = !!i.def)); break;
+    case 'setdef': L.cats.forEach(c => c.items.forEach(i => i.def = !!i.on)); break;
+    case 'addList':  if(!findList(d, op.list.id)) d.lists.push(op.list); break;
+    case 'editList': L.name = op.name; L.shared = op.shared; break;
+    case 'delList':  d.lists = d.lists.filter(x => x.id !== op.l); break;
+    case 'moveList': { const i = d.lists.indexOf(L), j = i + op.dir; if(j >= 0 && j < d.lists.length){ [d.lists[i], d.lists[j]] = [d.lists[j], d.lists[i]]; } break; }
+    case 'addCat':   if(!L.cats.find(c => c.id === op.cat.id)) L.cats.push(op.cat); break;
+    case 'editCat':  { const c = L.cats.find(c => c.id === op.c); if(c) c.name = op.name; break; }
+    case 'delCat':   L.cats = L.cats.filter(c => c.id !== op.c); break;
+    case 'moveCat':  { const i = L.cats.findIndex(c => c.id === op.c), j = i + op.dir; if(i >= 0 && j >= 0 && j < L.cats.length){ [L.cats[i], L.cats[j]] = [L.cats[j], L.cats[i]]; } break; }
+  }
+  return d;
+}
+
+let syncTimer = null;
+function commit(op){
+  queue.push(op); save(K.queue, queue);
+  render();
+  clearTimeout(syncTimer); syncTimer = setTimeout(sync, 1200);
+}
+
+/* ---------- GitHub sync ---------- */
+function b64enc(s){ return btoa(unescape(encodeURIComponent(s))); }
+function b64dec(s){ return decodeURIComponent(escape(atob(s.replace(/\n/g, '')))); }
+function apiUrl(){ return `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`; }
+function headers(){ return { Authorization: 'Bearer ' + cfg.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; }
+
+async function pull(){
+  const r = await fetch(apiUrl() + '?ref=' + encodeURIComponent(cfg.branch || 'main'), { cache: 'no-store', headers: headers() });
+  if(r.status === 404) return { missing: true };
+  if(r.status === 401) throw new Error('GitHub token not accepted – check it in Settings');
+  if(r.status === 403) throw new Error('Token has no access to the data repo');
+  if(!r.ok) throw new Error('GitHub error ' + r.status);
+  const j = await r.json();
+  return { data: JSON.parse(b64dec(j.content)), sha: j.sha };
+}
+function describe(ops){
+  const n = ops.length; if(!n) return 'Create checklists';
+  const t = ops[0].t;
+  const words = { tick:'tick', add:'add item', edit:'edit item', del:'delete item', reset:'reset list', setdef:'save starting position',
+                  addList:'new list', editList:'edit list', delList:'delete list', addCat:'add category', editCat:'rename category',
+                  delCat:'delete category', moveCat:'move category', moveList:'move list' };
+  return (words[t] || t) + (n > 1 ? ` (+${n - 1} more)` : '');
+}
+
+let syncing = false, syncAgain = false;
+async function sync(){
+  if(!cfg || !cfg.token) return;
+  if(syncing){ syncAgain = true; return; }
+  syncing = true; setSync('syncing');
+  try{
+    for(let attempt = 0; attempt < 5; attempt++){
+      const remote = await pull();
+      if(remote.missing && !isOwner()) throw new Error(`No checklists yet – ask ${OWNER_NAME} to open the app first`);
+      const remoteData = remote.missing ? seedData() : remote.data;
+      const n = queue.length;
+      if(n === 0 && !remote.missing){
+        base = remoteData; baseSha = remote.sha; save(K.base, base); save(K.sha, baseSha);
+        break;
+      }
+      const next = queue.slice(0, n).reduce((d, op) => applyOp(d, op), clone(remoteData));
+      next.updated = new Date().toISOString(); next.updatedBy = cfg.who;
+      const body = { message: `${cfg.who}: ${describe(queue.slice(0, n))}`, content: b64enc(JSON.stringify(next, null, 1)), branch: cfg.branch || 'main' };
+      if(!remote.missing) body.sha = remote.sha;
+      const r = await fetch(apiUrl(), { method: 'PUT', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if(r.status === 409 || r.status === 422){ await new Promise(res => setTimeout(res, 400 + Math.random() * 600)); continue; } // the other phone saved first – retry on top
+      if(!r.ok) throw new Error('Could not save to GitHub (' + r.status + ')');
+      const j = await r.json();
+      base = next; baseSha = j.content.sha;
+      queue = queue.slice(n);
+      save(K.base, base); save(K.sha, baseSha); save(K.queue, queue);
+      if(queue.length === 0) break;
+    }
+    lastSynced = new Date().toISOString(); save(K.synced, lastSynced);
+    setSync(queue.length ? 'pending' : 'ok');
+  }catch(e){
+    setSync(navigator.onLine === false ? 'offline' : 'error', e.message);
+  }finally{
+    syncing = false;
+    render();
+    if(syncAgain){ syncAgain = false; setTimeout(sync, 300); }
+  }
+}
+function setSync(s, msg = ''){ syncState = { s, msg }; const el = document.getElementById('syncdot'); if(el) el.outerHTML = syncHtml(); }
+function syncHtml(){
+  const { s, msg } = syncState;
+  const pending = queue.length;
+  let t = '';
+  if(s === 'syncing') t = '↻';
+  else if(s === 'error') t = '⚠︎';
+  else if(s === 'offline' || pending) t = '●';
+  else t = '';
+  const title = s === 'error' ? msg : s === 'offline' ? 'Offline – changes will upload later' : pending ? 'Changes waiting to upload' : 'Up to date';
+  return `<button id="syncdot" class="sync ${s === 'error' ? 'err' : ''}" data-act="syncinfo" title="${esc(title)}">${t}</button>`;
+}
+
+/* ---------- rendering ---------- */
+const app = document.getElementById('app');
+function counts(L){ let on = 0, all = 0; L.cats.forEach(c => c.items.forEach(i => { all++; if(i.on) on++; })); return { on, all }; }
+function visibleLists(d){ return d.lists.filter(l => l.shared || isOwner()); }
+
+function render(){
+  if(!cfg || !cfg.token){ renderSetup(); return; }
+  const d = data();
+  if(!d){
+    app.innerHTML = `<div class="bar"><h1>Checklists</h1>${syncHtml()}</div>
+      <div class="empty">${syncState.s === 'error' ? esc(syncState.msg) + '<br><br><button class="b" data-act="settings">Settings</button>' : 'Loading…'}</div>`;
+    return;
+  }
+  if(view.screen === 'list'){
+    const L = findList(d, view.list);
+    if(!L || (!L.shared && !isOwner())){ view = { screen: 'home' }; return render(); }
+    renderList(L);
+  } else renderHome(d);
+}
+
+function renderHome(d){
+  const lists = visibleLists(d);
+  app.innerHTML = `
+    <div class="bar"><h1>Checklists</h1>${syncHtml()}
+      ${isOwner() ? `<button class="btn" data-act="newList">＋ New</button>` : ''}
+      <button class="btn" data-act="settings" aria-label="Settings">⚙︎</button></div>
+    <div class="lists">
+      ${lists.length ? lists.map(L => { const c = counts(L), left = c.all - c.on; return `
+        <button class="lcard" data-act="open" data-l="${L.id}">
+          <div><div class="nm">${esc(L.name)}${isOwner() ? `<span class="badge">${L.shared ? 'Shared' : 'Just me'}</span>` : ''}</div>
+          <div class="sub">${left ? `${left} to pack · ${c.on} of ${c.all} ticked` : `All ${c.all} ticked ✓`}</div></div>
+          <span class="go">›</span></button>`; }).join('')
+        : `<div class="empty">No checklists yet.</div>`}
+    </div>`;
+}
+
+function renderList(L){
+  const c = counts(L), pct = c.all ? Math.round(c.on / c.all * 100) : 0;
+  const closed = ui.closed[L.id] || {};
+  const cats = L.cats.map(cat => {
+    const items = [...cat.items.filter(i => !i.on), ...cat.items.filter(i => i.on)]; // unticked first, original order kept
+    const left = cat.items.filter(i => !i.on).length;
+    const shown = (ui.hidePacked && !view.edit) ? items.filter(i => !i.on) : items;
+    const isClosed = !!closed[cat.id];
+    return `<div class="cat ${isClosed ? 'closed' : ''}">
+      <div class="cath">
+        <button class="t" data-act="toggleCat" data-c="${cat.id}"><span class="chev">▼</span>${esc(cat.name)}
+          <span class="n ${left ? '' : 'done'}">${left ? left + ' to pack' : (cat.items.length ? 'all packed ✓' : 'empty')}</span></button>
+        <button class="add" data-act="addItem" data-c="${cat.id}" aria-label="Add item">＋</button>
+      </div>
+      <div class="rows">
+        ${shown.map(i => `<button class="row ${i.on ? 'on' : ''}" data-act="${view.edit ? 'editItem' : 'tick'}" data-i="${i.id}">
+            <span class="box"></span><span class="nm">${esc(i.name)}</span>
+            ${view.edit && i.def ? '<span class="def">usual</span>' : ''}${view.edit ? '<span class="ed">✎</span>' : ''}</button>`).join('')}
+        ${(!shown.length && cat.items.length) ? `<div class="allpacked">All packed ✓</div>` : ''}
+      </div></div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="bar"><button class="btn" data-act="home">‹ Lists</button><h1>${esc(L.name)}</h1>${syncHtml()}
+      <button class="btn" data-act="toggleEdit">${view.edit ? 'Done' : 'Edit'}</button></div>
+    <div class="prog"><div class="track"><div class="fill" style="width:${pct}%"></div></div>
+      <span>${c.all - c.on ? `${c.all - c.on} to pack` : 'All packed ✓'}</span></div>
+    <div class="tools">
+      <button class="chip ${ui.hidePacked ? 'on' : ''}" data-act="hidePacked">${ui.hidePacked ? 'Showing to pack' : 'Hide packed'}</button>
+      <button class="chip" data-act="collapseAll">Fold all</button>
+      <button class="chip" data-act="listMenu">More…</button>
+    </div>
+    ${view.edit ? `<div class="editbanner">Tap an item to rename it, move it or set whether it’s usually packed.</div>` : ''}
+    ${cats || '<div class="empty">No categories yet.</div>'}`;
+}
+
+/* ---------- sheets ---------- */
+const sheet = document.getElementById('sheet'), shade = document.getElementById('shade');
+function openSheet(html){ sheet.innerHTML = html; sheet.style.display = 'block'; shade.style.display = 'block'; const f = sheet.querySelector('[autofocus]'); if(f) setTimeout(() => f.focus(), 50); }
+function closeSheet(){ sheet.style.display = 'none'; shade.style.display = 'none'; sheet.innerHTML = ''; }
+shade.addEventListener('click', closeSheet);
+function toast(t){ const el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1800); }
+function curList(){ const d = data(); return d && findList(d, view.list); }
+function catOptions(L, sel){ return L.cats.map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join(''); }
+
+function sheetAddItem(catId){
+  const L = curList(); if(!L) return;
+  openSheet(`<h2>Add item</h2>
+    <div class="fld"><label>Item</label><input type="text" id="f_name" autofocus autocomplete="off"></div>
+    <div class="fld"><label>Category</label><select id="f_cat">${catOptions(L, catId)}</select></div>
+    <label class="sw"><span>Usually packed<small>Ticked automatically when the list is reset</small></span><input type="checkbox" id="f_def"></label>
+    <div class="btns"><button class="b pri" data-act="doAdd" data-more="0">Add</button>
+    <button class="b" data-act="doAdd" data-more="1">Add &amp; add another</button>
+    <button class="b" data-act="close">Cancel</button></div>`);
+}
+function sheetEditItem(itemId){
+  const L = curList(); const f = L && findItem(L, itemId); if(!f) return;
+  openSheet(`<h2>Edit item</h2>
+    <div class="fld"><label>Item</label><input type="text" id="f_name" value="${esc(f.item.name)}" autocomplete="off"></div>
+    <div class="fld"><label>Category</label><select id="f_cat">${catOptions(L, f.c.id)}</select></div>
+    <label class="sw"><span>Usually packed<small>Ticked automatically when the list is reset</small></span><input type="checkbox" id="f_def" ${f.item.def ? 'checked' : ''}></label>
+    <div class="btns"><button class="b pri" data-act="doEdit" data-i="${itemId}">Save</button>
+    <button class="b danger" data-act="doDel" data-i="${itemId}">Delete item</button>
+    <button class="b" data-act="close">Cancel</button></div>`);
+}
+function sheetListMenu(){
+  const L = curList(); if(!L) return;
+  openSheet(`<h2>${esc(L.name)}</h2><div class="btns menu">
+    <button class="b" data-act="doReset">Reset to starting position<small>End of trip: unticks everything except the usually-packed items</small></button>
+    ${isOwner() ? `<button class="b" data-act="doSetDef">Make current ticks the starting position<small>Whatever is ticked now becomes “usually packed”</small></button>
+    <button class="b" data-act="listSettings">List settings<small>Rename, sharing, categories, delete</small></button>` : ''}
+    <button class="b" data-act="expandAll">Unfold all categories</button>
+    <button class="b" data-act="close">Close</button></div>`);
+}
+function sheetListSettings(){
+  const L = curList(); if(!L) return;
+  const d = data(); const idx = d.lists.findIndex(x => x.id === L.id);
+  openSheet(`<h2>List settings</h2>
+    <div class="fld"><label>Name</label><input type="text" id="f_lname" value="${esc(L.name)}"></div>
+    <label class="sw"><span>Shared with ${PARTNER_NAME}<small>Off = only you see this list</small></span><input type="checkbox" id="f_shared" ${L.shared ? 'checked' : ''}></label>
+    <button class="b pri" data-act="doListSave">Save name &amp; sharing</button>
+    <div class="fld" style="margin-top:16px"><label>Categories</label>
+      ${L.cats.map((c, k) => `<div class="catrow"><input type="text" value="${esc(c.name)}" data-cat="${c.id}">
+        <button data-act="catUp" data-c="${c.id}" ${k === 0 ? 'disabled style="opacity:.3"' : ''}>↑</button>
+        <button data-act="catDown" data-c="${c.id}" ${k === L.cats.length - 1 ? 'disabled style="opacity:.3"' : ''}>↓</button>
+        <button class="x" data-act="catDel" data-c="${c.id}">✕</button></div>`).join('')}
+      <div class="catrow"><input type="text" id="f_newcat" placeholder="New category"><button data-act="catAdd">Add</button></div>
+      <button class="b" data-act="catSaveNames">Save category names</button></div>
+    <div class="btns" style="margin-top:12px">
+      <button class="b" data-act="listMove" data-dir="-1" ${idx === 0 ? 'disabled style="opacity:.4"' : ''}>Move list up on home screen</button>
+      <button class="b danger" data-act="doDelList">Delete this list</button>
+      <button class="b" data-act="close">Close</button></div>`);
+}
+function sheetNewList(){
+  const d = data();
+  openSheet(`<h2>New checklist</h2>
+    <div class="fld"><label>Name</label><input type="text" id="f_lname" autofocus placeholder="e.g. Weekend away"></div>
+    <label class="sw"><span>Shared with ${PARTNER_NAME}<small>Off = only you see this list</small></span><input type="checkbox" id="f_shared" checked></label>
+    <div class="fld"><label>Start from</label><select id="f_from">
+      <option value="">Blank list</option>
+      ${d.lists.map(l => `<option value="${l.id}">Copy of ${esc(l.name)}</option>`).join('')}</select></div>
+    <div class="fld" id="catsfld"><label>Categories (one per line)</label><textarea id="f_cats" placeholder="e.g.\nClothes\nToiletries\nElectrics"></textarea></div>
+    <div class="btns"><button class="b pri" data-act="doNewList">Create</button><button class="b" data-act="close">Cancel</button></div>`);
+  sheet.querySelector('#f_from').addEventListener('change', e => { sheet.querySelector('#catsfld').style.display = e.target.value ? 'none' : ''; });
+}
+function sheetSettings(){
+  const when = lastSynced ? new Date(lastSynced).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+  openSheet(`<h2>Settings</h2>
+    <div class="note">This phone: <b>${esc(cfg.who)}</b>${isOwner() ? ' (owner)' : ''}<br>
+      Data: ${esc(cfg.owner)}/${esc(cfg.repo)}<br>Last synced: ${esc(when)}${queue.length ? `<br>${queue.length} change(s) waiting to upload` : ''}
+      ${syncState.s === 'error' ? `<br><span style="color:var(--danger)">${esc(syncState.msg)}</span>` : ''}</div>
+    <div class="btns">
+      <button class="b pri" data-act="syncNow">Sync now</button>
+      ${isOwner() ? `<button class="b" data-act="partnerCode">Make ${PARTNER_NAME}’s setup code</button>` : ''}
+      <button class="b danger" data-act="signOut">Disconnect this phone</button>
+      <button class="b" data-act="close">Close</button></div>`);
+}
+function sheetPartnerCode(){
+  openSheet(`<h2>${PARTNER_NAME}’s setup code</h2>
+    <div class="note">Paste the GitHub token you made for ${PARTNER_NAME} (access to <b>${esc(cfg.repo)}</b> only). The app turns it into a setup code to send her.</div>
+    <div class="fld"><label>${PARTNER_NAME}’s token</label><input type="password" id="f_ptok" autocomplete="off"></div>
+    <div id="codeout"></div>
+    <div class="btns"><button class="b pri" data-act="doPartnerCode">Make code</button><button class="b" data-act="close">Close</button></div>`);
+}
+
+/* ---------- setup screen ---------- */
+let setupWho = OWNER_NAME;
+function renderSetup(){
+  app.innerHTML = `<div class="setup">
+    <h1>Checklists</h1><div class="note" style="text-align:center">Connect this phone to your shared checklists.</div>
+    <div class="fld"><label>Who uses this phone?</label>
+      <div class="seg"><button data-act="who" data-w="${OWNER_NAME}" class="${setupWho === OWNER_NAME ? 'sel' : ''}">${OWNER_NAME}</button>
+      <button data-act="who" data-w="${PARTNER_NAME}" class="${setupWho === PARTNER_NAME ? 'sel' : ''}">${PARTNER_NAME}</button></div></div>
+    <div class="fld"><label>GitHub token or setup code</label><textarea id="s_tok" style="min-height:70px" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></div>
+    <details class="note"><summary>Data repo (advanced)</summary>
+      <div class="fld" style="margin-top:8px"><label>Owner</label><input type="text" id="s_owner" value="${DEFAULTS.owner}" autocapitalize="off"></div>
+      <div class="fld"><label>Repo</label><input type="text" id="s_repo" value="${DEFAULTS.repo}" autocapitalize="off"></div></details>
+    <div class="btns"><button class="b pri" data-act="connect">Connect</button></div>
+    <div class="note" id="s_msg"></div></div>`;
+}
+async function doConnect(){
+  const raw = (document.getElementById('s_tok').value || '').trim();
+  const msg = document.getElementById('s_msg');
+  let c = { token: raw, who: setupWho, owner: document.getElementById('s_owner').value.trim() || DEFAULTS.owner,
+            repo: document.getElementById('s_repo').value.trim() || DEFAULTS.repo, path: DEFAULTS.path, branch: DEFAULTS.branch };
+  if(raw.startsWith('CL1:')){
+    try{ const j = JSON.parse(b64dec(raw.slice(4))); c = { ...c, token: j.t, who: j.w, owner: j.o, repo: j.r }; }
+    catch(e){ msg.textContent = 'That setup code doesn’t look right.'; return; }
+  }
+  if(!c.token){ msg.textContent = 'Paste a token or setup code first.'; return; }
+  msg.textContent = 'Checking…';
+  const prev = cfg; cfg = c;
+  try{
+    const r = await pull();
+    if(r.missing && c.who !== OWNER_NAME){ throw new Error(`Connected, but there are no checklists yet – ask ${OWNER_NAME} to open the app first.`); }
+    save(K.cfg, cfg);
+    if(!r.missing){ base = r.data; baseSha = r.sha; save(K.base, base); save(K.sha, baseSha); }
+    view = { screen: 'home' }; render(); sync();
+  }catch(e){ cfg = prev; msg.textContent = e.message; }
+}
+
+/* ---------- actions ---------- */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if(!el || el.disabled) return;
+  const a = el.dataset.act, L = view.list ? curList() : null;
+  const v = id => (sheet.querySelector('#' + id) || {}).value;
+  const chk = id => !!(sheet.querySelector('#' + id) || {}).checked;
+  switch(a){
+    case 'who': setupWho = el.dataset.w; renderSetup(); break;
+    case 'connect': doConnect(); break;
+    case 'open': view = { screen: 'list', list: el.dataset.l, edit: false }; render(); window.scrollTo(0, 0); break;
+    case 'home': view = { screen: 'home' }; render(); break;
+    case 'tick': { const f = findItem(L, el.dataset.i); if(f) commit({ t: 'tick', l: L.id, i: f.item.id, v: !f.item.on }); break; }
+    case 'toggleEdit': view.edit = !view.edit; render(); break;
+    case 'hidePacked': ui.hidePacked = !ui.hidePacked; save(K.ui, ui); render(); break;
+    case 'toggleCat': { const m = ui.closed[L.id] = ui.closed[L.id] || {}; m[el.dataset.c] = !m[el.dataset.c]; save(K.ui, ui); render(); break; }
+    case 'collapseAll': { const m = ui.closed[L.id] = {}; L.cats.forEach(c => m[c.id] = true); save(K.ui, ui); render(); break; }
+    case 'expandAll': ui.closed[L.id] = {}; save(K.ui, ui); closeSheet(); render(); break;
+    case 'addItem': sheetAddItem(el.dataset.c); break;
+    case 'editItem': sheetEditItem(el.dataset.i); break;
+    case 'listMenu': sheetListMenu(); break;
+    case 'listSettings': sheetListSettings(); break;
+    case 'newList': sheetNewList(); break;
+    case 'settings': sheetSettings(); break;
+    case 'partnerCode': sheetPartnerCode(); break;
+    case 'close': closeSheet(); break;
+    case 'syncinfo': toast(syncState.s === 'error' ? syncState.msg : queue.length ? 'Changes waiting to upload' : 'Up to date'); sync(); break;
+    case 'syncNow': closeSheet(); sync().then(() => toast(syncState.s === 'error' ? syncState.msg : 'Synced')); break;
+
+    case 'doAdd': {
+      const name = (v('f_name') || '').trim(); if(!name){ toast('Type an item name'); return; }
+      const def = chk('f_def'), c = v('f_cat');
+      commit({ t: 'add', l: L.id, c, item: { id: uid(), name, def, on: false } });
+      if(el.dataset.more === '1'){ sheet.querySelector('#f_name').value = ''; sheet.querySelector('#f_name').focus(); toast('Added ' + name); }
+      else { closeSheet(); toast('Added ' + name); }
+      break; }
+    case 'doEdit': {
+      const name = (v('f_name') || '').trim(); if(!name){ toast('Name can’t be empty'); return; }
+      commit({ t: 'edit', l: L.id, i: el.dataset.i, name, def: chk('f_def'), c: v('f_cat') }); closeSheet(); break; }
+    case 'doDel': { const f = findItem(L, el.dataset.i); if(f && confirm(`Delete “${f.item.name}”?`)){ commit({ t: 'del', l: L.id, i: el.dataset.i }); closeSheet(); } break; }
+    case 'doReset': if(confirm(`Reset “${L.name}” to its starting position?\n\nUsually-packed items will be ticked and everything else unticked.`)){ commit({ t: 'reset', l: L.id }); closeSheet(); toast('List reset'); } break;
+    case 'doSetDef': if(confirm('Make the items ticked right now the “usually packed” set used when resetting?')){ commit({ t: 'setdef', l: L.id }); closeSheet(); toast('Starting position saved'); } break;
+
+    case 'doListSave': { const name = (v('f_lname') || '').trim() || L.name; commit({ t: 'editList', l: L.id, name, shared: chk('f_shared') }); toast('Saved'); sheetListSettings(); break; }
+    case 'catUp': case 'catDown': commit({ t: 'moveCat', l: L.id, c: el.dataset.c, dir: a === 'catUp' ? -1 : 1 }); sheetListSettings(); break;
+    case 'catDel': { const c = L.cats.find(c => c.id === el.dataset.c);
+      if(c && confirm(`Delete category “${c.name}”${c.items.length ? ` and its ${c.items.length} item(s)` : ''}?`)){ commit({ t: 'delCat', l: L.id, c: c.id }); sheetListSettings(); } break; }
+    case 'catAdd': { const name = (v('f_newcat') || '').trim(); if(!name) return; commit({ t: 'addCat', l: L.id, cat: { id: uid(), name, items: [] } }); sheetListSettings(); break; }
+    case 'catSaveNames': sheet.querySelectorAll('input[data-cat]').forEach(inp => {
+        const c = L.cats.find(c => c.id === inp.dataset.cat), name = inp.value.trim();
+        if(c && name && name !== c.name) commit({ t: 'editCat', l: L.id, c: c.id, name }); });
+      toast('Saved'); sheetListSettings(); break;
+    case 'listMove': commit({ t: 'moveList', l: L.id, dir: -1 }); sheetListSettings(); break;
+    case 'doDelList': if(confirm(`Delete the whole “${L.name}” checklist? This can’t be undone in the app.`)){ commit({ t: 'delList', l: L.id }); closeSheet(); view = { screen: 'home' }; render(); } break;
+
+    case 'doNewList': {
+      const name = (v('f_lname') || '').trim(); if(!name){ toast('Give the list a name'); return; }
+      const from = v('f_from'); let cats;
+      if(from){ const src = findList(data(), from);
+        cats = src.cats.map(c => ({ id: uid(), name: c.name, items: c.items.map(i => ({ id: uid(), name: i.name, def: !!i.def, on: !!i.def })) })); }
+      else { cats = (v('f_cats') || '').split('\n').map(s => s.trim()).filter(Boolean).map(n => ({ id: uid(), name: n, items: [] }));
+        if(!cats.length) cats = [{ id: uid(), name: 'Items', items: [] }]; }
+      const list = { id: uid(), name, shared: chk('f_shared'), cats };
+      commit({ t: 'addList', list }); closeSheet(); view = { screen: 'list', list: list.id, edit: false }; render(); break; }
+
+    case 'doPartnerCode': { const t = (v('f_ptok') || '').trim(); if(!t){ toast('Paste her token first'); return; }
+      const code = 'CL1:' + b64enc(JSON.stringify({ t, w: PARTNER_NAME, o: cfg.owner, r: cfg.repo }));
+      sheet.querySelector('#codeout').innerHTML = `<div class="note">Send this to ${PARTNER_NAME} (e.g. by WhatsApp). She pastes it into the app on first open.</div>
+        <div class="code" id="codetxt">${esc(code)}</div><div class="btns"><button class="b" data-act="copyCode">Copy code</button></div>`;
+      break; }
+    case 'copyCode': { const t = sheet.querySelector('#codetxt').textContent;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Copied'), () => toast('Press and hold the code to copy')); break; }
+    case 'signOut': if(confirm('Disconnect this phone? Any changes not yet uploaded will be lost.')){
+        [K.cfg, K.base, K.sha, K.queue, K.synced].forEach(k => localStorage.removeItem(k));
+        cfg = null; base = null; queue = []; closeSheet(); render(); } break;
+  }
+});
+
+/* keep both phones in step */
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') sync(); });
+window.addEventListener('online', () => sync());
+setInterval(() => { if(document.visibilityState === 'visible' && !sheet.innerHTML) sync(); }, POLL_MS);
+
+render();
+sync();
+</script>
+</body>
+</html>
